@@ -2,7 +2,7 @@ from typing import Union,Annotated,List
 from enum import Enum
 
 from fastapi import FastAPI, Query, Path, Body
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, HttpUrl
 
 app = FastAPI()
 
@@ -107,7 +107,7 @@ async def create_item(item: SampleItem, user: User, importance : Annotated[int, 
     # item: SampleItem | None = None  Optional body param
     return item
 
-# #Query Parameters and String Validations (Annotation)
+#Query Parameters and String Validations (Annotation)
 @app.get("/queryparam/validation")
 async def read_items(q: Annotated[List[str], Query(alias="item-query",title="Query string",description="Query string for the items to search in the database that have a good match",deprecated=True)] = []):
     # q: Annotated[str | None, Query(min_length=3,max_length=19,pattern="^fixedquery$")] = ... new method using annotated
@@ -117,3 +117,26 @@ async def read_items(q: Annotated[List[str], Query(alias="item-query",title="Que
     if q:
         results.update({"q": q})
     return results
+
+#Nested Models
+
+class Image(BaseModel):
+    url: HttpUrl
+    name: str
+
+
+class Nested(BaseModel):
+    name: str
+    description: str | None = None
+    price: float
+    tax: float | None = None
+    tags: set[str] = set()
+    # image: Image | None = None
+    image: list[Image] | None = None
+
+
+@app.put("/nested/model/{item_id}")
+async def update_item(item_id: int, item: Nested, image: list[Image], weights: dict[int, float]):
+    results = {"item_id": item_id, "item": item}
+    return weights
+
