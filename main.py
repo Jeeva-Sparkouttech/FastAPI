@@ -1,9 +1,8 @@
-from typing import Union
+from typing import Union,Annotated,List
 from enum import Enum
-from typing import Annotated
 
-from fastapi import FastAPI, Query
-from pydantic import BaseModel
+from fastapi import FastAPI, Query, Path, Body
+from pydantic import BaseModel, Field
 
 app = FastAPI()
 
@@ -13,20 +12,45 @@ class Item(BaseModel):
     price: float
     is_offer: Union[bool, None] = None
 
+class User(BaseModel):
+    username: str
+    full_name: str | None = None
+
 
 @app.get("/")
 def read_root():
     return {"Hello": "World"}
 
 
-@app.get("/items/{item_id}")
-def read_item(item_id: int, q: Union[str, None] = None):
+@app.get("/path_parameter/validations/{item_id}")
+def read_item(item_id: Annotated[int, Path(title="The ID of the item to get", ge=0, le=1000)],
+    q: str,
+    size:float = Query(gt=0, lt=10.5)):
+    # *,item_id: int = Path(title="The ID of the item to get"),q: Union[str, None] 
     return {"item_id": item_id, "q": q}
 
 
 @app.put("/items/{item_id}")
-def update_item(item_id: int, item: Item):
-    return {"item_name": item.name, "item_id": item_id}
+async def update_item(
+    item_id: int,
+    item: Item,
+    user: User,
+    importance: Annotated[int, Body(gt=0)],
+    q: str | None = None,
+):
+    results = {"item_id": item_id, "item": item, "user": user, "importance": importance}
+    if q:
+        results.update({"q": q})
+    return results
+
+
+@app.put("/embed/{item_id}")
+async def update_item(
+    item_id: int,
+    item: Annotated[Item,Body(embed = True)],
+    q: str | None = None,
+):
+    return item
 
 
 #Enum
@@ -69,21 +93,26 @@ async def read_item(item_id: str, q: str | None = None, short: bool = False) -> 
 #Request body
 class SampleItem(BaseModel):
     name: str
-    description: str | None = None
-    price: float
-    tax: float | None = None
+    description: str | None = Field(
+        default=None, title="The description of the item", max_length=300
+    )
+    price: Annotated[float, Field(gt=0, description="The price must be greater than zero")]
+    tags: set[str]
+    my_list: List[str] = []
+
 
 @app.post("/request_body/")
-async def create_item(item: SampleItem):
-    item_dict = item.dict()
-    if item.tax:
-        price_with_tax = item.price + item.tax
-        item_dict.update({"price_with_tax": price_with_tax})
-    return item_dict
+async def create_item(item: SampleItem, user: User, importance : Annotated[int, Body()]):
+    # importance : int = Body() or importance : Annotated[int, Body()] singular values in body
+    # item: SampleItem | None = None  Optional body param
+    return item
 
 # #Query Parameters and String Validations (Annotation)
-@app.get("/items/")
-async def read_items(q: Annotated[str | None, Query(max_length=50)] = None):
+@app.get("/queryparam/validation")
+async def read_items(q: Annotated[List[str], Query(alias="item-query",title="Query string",description="Query string for the items to search in the database that have a good match",deprecated=True)] = []):
+    # q: Annotated[str | None, Query(min_length=3,max_length=19,pattern="^fixedquery$")] = ... new method using annotated
+    # q: Union[str, None] = Query(default=None, max_length=50) old method
+    # q: Annotated[str | None, Query(min_length=3,max_length=19,pattern="^fixedquery$")] = ... (ellipsis declare that a value is required)
     results = {"items": [{"item_id": "Foo"}, {"item_id": "Bar"}]}
     if q:
         results.update({"q": q})
