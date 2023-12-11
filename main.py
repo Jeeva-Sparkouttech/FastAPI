@@ -92,7 +92,8 @@ async def read_item(item_id: str, q: str | None = None, short: bool = False) -> 
 
 #Request body
 class SampleItem(BaseModel):
-    name: str
+    # name: str = Field(examples=["Foo"])
+    name: str 
     description: str | None = Field(
         default=None, title="The description of the item", max_length=300
     )
@@ -102,7 +103,36 @@ class SampleItem(BaseModel):
 
 
 @app.post("/request_body/")
-async def create_item(item: SampleItem, user: User, importance : Annotated[int, Body()]):
+# item: Annotated[SampleItem, Body(examples = [{"name": "Foo","description": "A very nice Item","price": 35.4}])]
+async def create_item(item:Annotated[SampleItem,Body(
+            openapi_examples={
+                "normal": {
+                    "summary": "A normal example",
+                    "description": "A **normal** item works correctly.",
+                    "value": {
+                        "name": "Foo",
+                        "description": "A very nice Item",
+                        "price": 35.4,
+                        "tax": 3.2,
+                    },
+                },
+                "converted": {
+                    "summary": "An example with converted data",
+                    "description": "FastAPI can convert price `strings` to actual `numbers` automatically",
+                    "value": {
+                        "name": "Bar",
+                        "price": "35.4",
+                    },
+                },
+                "invalid": {
+                    "summary": "Invalid data is rejected with an error",
+                    "value": {
+                        "name": "Baz",
+                        "price": "thirty five point four",
+                    },
+                },
+            },
+        )], user: User, importance : Annotated[int, Body()]):
     # importance : int = Body() or importance : Annotated[int, Body()] singular values in body
     # item: SampleItem | None = None  Optional body param
     return item
@@ -133,6 +163,20 @@ class Nested(BaseModel):
     tags: set[str] = set()
     # image: Image | None = None
     image: list[Image] | None = None
+    
+    #Extra JSON Schema data in Pydantic models
+    # model_config = {
+    #     "json_schema_extra": {
+    #         "examples": [
+    #             {
+    #                 "name": "Foo",
+    #                 "description": "A very nice Item",
+    #                 "price": 35.4,
+    #                 "tax": 3.2,
+    #             }
+    #         ]
+    #     }
+    # }
 
 
 @app.put("/nested/model/{item_id}")
