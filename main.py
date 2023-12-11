@@ -1,7 +1,7 @@
 from typing import Union,Annotated,List
 from enum import Enum
 
-from fastapi import FastAPI, Query, Path, Body
+from fastapi import FastAPI, Query, Path, Body, Cookie, Header
 from pydantic import BaseModel, Field, HttpUrl
 
 app = FastAPI()
@@ -37,6 +37,10 @@ async def update_item(
     user: User,
     importance: Annotated[int, Body(gt=0)],
     q: str | None = None,
+    ads_id: Annotated[str | None, Cookie()] = None,
+    user_agent: Annotated[str | None, Header()] = None #by default convert_underscores=True
+    # user_agent: Annotated[str | None, Header(convert_underscores=False)] = None
+    
 ):
     results = {"item_id": item_id, "item": item, "user": user, "importance": importance}
     if q:
